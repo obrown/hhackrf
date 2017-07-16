@@ -63,6 +63,11 @@ checkReturnCode code
         success = return $ Right ()
 
 
+-- | Run a computation with a device
+withDevicePtr :: HRFDevice -> (Ptr CHRFDevice -> IO b) -> IO b
+withDevicePtr device = withForeignPtr (hrfDevice device)
+
+
 foreign import ccall unsafe "hackrf_error_name" c_hackrf_error_name :: CInt -> CString
 
 -- | Retrieve the message corresponing to a libHackRF error code
@@ -113,3 +118,35 @@ foreign import ccall unsafe "&hackrf_close" c_hackrf_close :: FunPtr (Ptr CHRFDe
 -- | Open a HackRF device
 open :: String -> IO (Either String HRFDevice)
 open serialNumber = undefined
+
+
+foreign import ccall unsafe "hackrf_set_freq" c_hackrf_set_freq :: Ptr CHRFDevice -> Word64 -> IO CInt
+
+setFreq :: (Integral a) => HRFDevice -> a -> IO (Either String ())
+setFreq device freq
+  = withDevicePtr device $ \devptr ->
+      c_hackrf_set_freq devptr (fromIntegral freq) >>= checkReturnCode
+
+
+foreign import ccall unsafe "hackrf_set_sample_rate" c_hackrf_set_sample_rate :: Ptr CHRFDevice -> CDouble -> IO CInt
+
+setRate :: (Integral a) => HRFDevice -> a -> IO (Either String ())
+setRate device rate
+  = withDevicePtr device $ \devptr ->
+      c_hackrf_set_sample_rate devptr (fromIntegral rate) >>= checkReturnCode
+
+
+foreign import ccall unsafe "hackrf_set_lna_gain" c_hackrf_set_lna_gain :: Ptr CHRFDevice -> Word32 -> IO CInt
+
+setLNAGain :: (Integral a) => HRFDevice -> a -> IO (Either String ())
+setLNAGain device gain
+  = withDevicePtr device $ \devptr ->
+      c_hackrf_set_lna_gain devptr (fromIntegral gain) >>= checkReturnCode
+
+
+foreign import ccall unsafe "hackrf_set_vga_gain" c_hackrf_set_vga_gain :: Ptr CHRFDevice -> Word32 -> IO CInt
+
+setVGAGain :: (Integral a) => HRFDevice -> a -> IO (Either String ())
+setVGAGain device gain
+  = withDevicePtr device $ \devptr ->
+      c_hackrf_set_vga_gain devptr (fromIntegral gain) >>= checkReturnCode
