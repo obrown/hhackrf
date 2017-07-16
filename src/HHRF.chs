@@ -8,14 +8,9 @@ module HHRF (
 
 
 import Foreign
-import Foreign.Storable
-import Foreign.Ptr
 import Foreign.C
-import Foreign.ForeignPtr
-import Foreign.Marshal.Array
 
 import Control.Applicative
-import Control.Monad
 
 
 #include <libhackrf/hackrf.h>
