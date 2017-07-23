@@ -111,8 +111,21 @@ foreign import ccall unsafe "hackrf_open_by_serial" c_hackrf_open_by_serial :: C
 foreign import ccall unsafe "&hackrf_close" c_hackrf_close :: FunPtr (Ptr CHRFDevice -> IO ())
 
 -- | Open a HackRF device
-open :: String -> IO (Either String HRFDevice)
-open serialNumber = undefined
+open :: String -> IO (Either HRFError HRFDevice)
+open serialNumber = do
+  withCString serialNumber $ \cSerialNumber ->
+    alloca $ \ptr -> do
+      status <- c_hackrf_open_by_serial cSerialNumber ptr >>= checkReturnCode
+      case status of
+        Left msg -> return $ Left msg
+        Right _ -> Right . HRFDevice <$> (peek ptr >>= \ptr -> FC.newForeignPtr ptr (c_hackrf_close ptr))
+
+open0 :: IO (Either HRFError HRFDevice)
+open0 = do
+  devices <- listDevices
+  case devices of
+    [] -> return $ Left "no devices found"
+    (x:_) -> open $ serialNumber x
 
 
 foreign import ccall unsafe "hackrf_set_freq" c_hackrf_set_freq :: Ptr CHRFDevice -> Word64 -> IO CInt
