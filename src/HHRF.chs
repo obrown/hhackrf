@@ -9,6 +9,7 @@ module HHRF (
 
 import Foreign
 import Foreign.C
+import qualified Foreign.Concurrent as FC
 
 import Control.Applicative
 
@@ -17,6 +18,9 @@ import Control.Applicative
 
 
 type HRFError = String
+type CHRFDevice = ()
+newtype HRFDevice = HRFDevice { hrfDevice :: ForeignPtr CHRFDevice }
+
 
 
 type HRFDeviceList = [HRFDeviceListEntry]
@@ -47,9 +51,6 @@ instance Storable CHRFDeviceList where
                 <*> {#get hackrf_device_list_t->usb_devices #} ptr
                 <*> {#get hackrf_device_list_t->usb_devicecount #} ptr
   poke = undefined
-
-type CHRFDevice = Ptr ()
-newtype HRFDevice = HRFDevice { hrfDevice :: ForeignPtr CHRFDevice }
 
 
 -- | Check a return code from libHackRF
@@ -110,8 +111,8 @@ listDevices = do
 
 
 foreign import ccall unsafe "hackrf_open" c_hackrf_open :: ()
-foreign import ccall unsafe "hackrf_open_by_serial" c_hackrf_open_by_serial :: CString -> (Ptr CHRFDevice) -> IO CInt
-foreign import ccall unsafe "&hackrf_close" c_hackrf_close :: FunPtr (Ptr CHRFDevice -> IO ())
+foreign import ccall unsafe "hackrf_open_by_serial" c_hackrf_open_by_serial :: CString -> (Ptr (Ptr CHRFDevice)) -> IO CInt
+foreign import ccall unsafe "hackrf_close" c_hackrf_close :: Ptr CHRFDevice -> IO ()
 
 -- | Open a HackRF device
 open :: String -> IO (Either HRFError HRFDevice)
