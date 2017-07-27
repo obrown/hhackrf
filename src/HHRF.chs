@@ -1,4 +1,8 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module HHRF (
   HHRF.init,
   exit,
@@ -21,7 +25,8 @@ type HRFError = String
 type CHRFDevice = ()
 newtype HRFDevice = HRFDevice { hrfDevice :: ForeignPtr CHRFDevice }
 
-
+class FromC a b where
+  fromC :: a -> IO b
 
 type HRFDeviceList = [HRFDeviceListEntry]
 data HRFDeviceListEntry = HRFDeviceListEntry {
@@ -51,6 +56,21 @@ instance Storable CHRFDeviceList where
                 <*> {#get hackrf_device_list_t->usb_devices #} ptr
                 <*> {#get hackrf_device_list_t->usb_devicecount #} ptr
   poke = undefined
+
+instance FromC CHRFDeviceList HRFDeviceList where
+  fromC c = do
+    let count = fromIntegral . deviceCount $ c
+
+    serialnumbers <- peekArray count (serialNumbers c)
+    serialnumbers' <- ZipList <$> mapM peekCString serialnumbers
+
+    usbids <- peekArray count (usbBoardIds c)
+    let usbids' = ZipList $ fmap fromIntegral usbids
+
+    usbidxs <- peekArray count (usbDeviceIdxs c)
+    let usbidxs' = ZipList $ fmap fromIntegral usbidxs
+
+    return . getZipList $ liftA3 HRFDeviceListEntry serialnumbers' usbids' usbidxs'
 
 
 -- | Check a return code from libHackRF
@@ -94,20 +114,8 @@ foreign import ccall unsafe "&hackrf_device_list_free" c_hackrf_device_list_free
 -- | List available HackRF devices
 listDevices :: IO HRFDeviceList
 listDevices = do
-  dl <- c_hackrf_device_list >>= (newForeignPtr c_hackrf_device_list_free)
-  devicelist <- withForeignPtr dl peek
-  let count = fromIntegral . deviceCount $ devicelist
-
-  serialnumbers <- peekArray count (serialNumbers devicelist)
-  serialnumbers' <- ZipList <$> mapM peekCString serialnumbers
-
-  usbids <- peekArray count (usbBoardIds devicelist)
-  let usbids' = ZipList $ fmap fromIntegral usbids
-
-  usbidxs <- peekArray count (usbDeviceIdxs devicelist)
-  let usbidxs' = ZipList $ fmap fromIntegral usbidxs
-
-  return . getZipList $ liftA3 HRFDeviceListEntry serialnumbers' usbids' usbidxs'
+  dlptr <- c_hackrf_device_list >>= (newForeignPtr c_hackrf_device_list_free)
+  withForeignPtr dlptr peek >>= fromC
 
 
 foreign import ccall unsafe "hackrf_open" c_hackrf_open :: ()
